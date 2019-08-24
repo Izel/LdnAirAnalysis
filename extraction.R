@@ -1,11 +1,11 @@
-######################################
+###############################################################################
 # Data Extraction
-######################################
+# Extracting data of Stations (Metadata) from AURN network
+###############################################################################
 
 library(openair)
 library(stringr)
 
-# Extracting data of Stations (Metadata) from AURN network
 UKStations = importMeta(source = "AURN", all=TRUE)
 
 # Obtaining the stations located in Greater London and save the info in a 
