@@ -1,9 +1,10 @@
 ######################################
 # Data Exploration 
 ######################################
-
 library(openair)
+library(ggplot2)
 library(RODBC)
+library(dplyr)
 
 # Preparing connection and driver for mysql queries
 driver = "MySQL ODBC 8.0 Unicode Driver" 
@@ -17,17 +18,17 @@ conn = paste("DRIVER=",driver, ";Database=",db,";Server=",host, ";Port=",port,
              ";PROTOCOL=TCPIP",";UID=", user,";PWD=",pwd, sep="")
 ODBCconn = odbcDriverConnect(conn)
 
-sql = "select measure_date, code, site, no, no2, nox, pm25, pm10, so2, o3, ws, wd, temp  
+sql = "select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp  
       from ST_AURN_MEASURES_2013 
-      union select measure_date, code, site, no, no2, nox, pm25, pm10, so2, o3, ws, wd, temp 
+      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp 
       from ST_AURN_MEASURES_2014 
-      union select measure_date, code, site, no, no2, nox, pm25, pm10, so2, o3, ws, wd, temp   
+      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp   
       from ST_AURN_MEASURES_2015 
-      union select measure_date, code, site, no, no2, nox, pm25, pm10, so2, o3, ws, wd, temp     
+      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp     
       from ST_AURN_MEASURES_2016
-      union select measure_date, code, site, no, no2, nox, pm25, pm10, so2, o3, ws, wd, temp  
+      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp  
       from ST_AURN_MEASURES_2017
-      union select measure_date, code, site, no, no2, nox, pm25, pm10, so2, o3, ws, wd, temp   
+      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp   
       from ST_AURN_MEASURES_2018"
 pollutants = sqlQuery(ODBCconn, sql)
 
@@ -40,12 +41,30 @@ names(pollutants)[names(pollutants) == "measure_date"] <- "date"
 # Transforming the date values
 pollutants$date = as.POSIXct(pollutants$date)
 
+# Replacing negative values to zero
+pollutants$no2[pollutants$no2 < 0] <- 0
+pollutants$pm25[pollutants$pm25 < 0] <- 0
+pollutants$pm10[pollutants$pm10 < 0] <- 0
+pollutants$o3[pollutants$o3 < 0] <- 0
+
+head(pollutants)
+
+# Data overview
+summary(pollutants)
+
+# Dataset normalization
+#norm_pollutants = normalize(pollutants[4:13], method="Z-score")
+
+# Dataset normalization
+#pollutants[4:13] = scale(pollutants[4:13])
+
+
 # General view of the measures(mean)
-png("images/NoxGeneral.png", width = 12 * 600, height = 5 * 600, res = 600)
-timePlot(pollutants, pollutant = c("no", "no2", "nox"),
+png("images/No2General.png", width = 12 * 600, height = 5 * 600, res = 600)
+timePlot(pollutants, pollutant = "no2",
          avg.time = "year", normalise = "1/1/2013", lwd = 3, lty = 1,
          group = TRUE, ylim = c(0, 800), type = "site", 
-         main = "General view (mean) of nitrogens between 2013-2018")
+         main = "General view (mean) of nitrogen dioxide between 2013-2018")
 dev.off()
 png("images/particulatesGeneral.png", width = 12 * 1200, height = 5 * 1200, res = 1200)
 timePlot(pollutants, pollutant = c("pm10", "pm25"),
@@ -53,16 +72,153 @@ timePlot(pollutants, pollutant = c("pm10", "pm25"),
          group = TRUE, ylim = c(0, 200), type = "site",
          main = "General view of particulates between 2013-2018")
 dev.off()
+png("images/ozoneGeneral.png", width = 12 * 1200, height = 5 * 1200, res = 1200)
+timePlot(pollutants, pollutant = "o3",
+         avg.time = "year", normalise = "1/1/2013", lwd = 3, lty = 1,
+         group = TRUE, ylim = c(0, 400), type = "site",
+         main = "General view of sodiun dioxide and ozone between 2013-2018")
+dev.off()
+
+summaryPlot(pollutants, pollutant="o3", main="Ozone data overview")
+summaryPlot(pollutants, pollutant="no2", main="Nitrogen dioxide data overview")
+summaryPlot(pollutants, pollutant="pm25", main="PM2.5 data overview")
+summaryPlot(pollutants, pollutant="pm10", main="PM10 data overview")
 
 # Trend for pollutants
-smoothTrend(pollutants, pollutant = c("no2", "pm25", "pm10", "so2", "o3"), 
+png("images/nonDeseasonalisedTrend.png", width = 12 * 600, height = 5 * 600, res = 600)
+smoothTrend(pollutants, pollutant = c("no2", "pm25", "pm10", "o3"), 
             deseason = TRUE, simulate =TRUE, ylab = "concentration (ppb)",
             main = "Monthly mean non-deseasonalised trend")
-
-smoothTrend(pollutants, pollutant = c("no2", "pm25", "pm10", "so2", "o3"), 
+dev.off()
+png("images/deseasonalisedTrend.png", width = 12 * 600, height = 5 * 600, res = 600)
+smoothTrend(pollutants, pollutant = c("no2", "pm25", "pm10", "o3"), 
             deseason = FALSE, simulate =TRUE, ylab = "concentration (ppb)",
             main = "Monthly mean deseasonalised trend")
-head(pollutants)
+dev.off()
+
+# Maxims levels of concentrations according to EEA (Year mean) for regulated 
+# pollutants between 2013-2018
+no2YearMean = aggregate(pollutants$no2, format(pollutants["date"],"%y"), mean,
+                       na.rm = TRUE)
+pm25YearMean = aggregate(pollutants$pm25, format(pollutants["date"],"%y"), mean,
+                       na.rm = TRUE)
+pm10YearMean = aggregate(pollutants$pm10, format(pollutants["date"],"%y"), mean,
+                         na.rm = TRUE)
+
+# No2 yearly mean between 2013-2018
+names(no2YearMean)[names(no2YearMean) == "x"] <- "No2 yearly mean"
+# PM2.5 yearly mean between 2013-2018
+names(pm25YearMean)[names(pm25YearMean) == "x"] <- "PM2.5 yearly mean"
+# PM10 yearly mean between 2013-2018
+names(pm10YearMean)[names(pm10YearMean) == "x"] <- "PM10 yearly mean"
+
+
+#------------------------------------------------------------------------------
+# Data exploration for O3
+#------------------------------------------------------------------------------
+# Maximun level concentrations for O3 per Hour
+
+pollutantO3 = data.frame("date"=pollutants$date, "o3"=pollutants$o3)
+ggplot(pollutantO3, aes(date, o3))+
+   geom_point(color="forestgreen")+
+   labs(x="Year", y="Ozone concentration (u/m3)")+
+   scale_y_continuous(breaks = c(0,50,100,150,180,200)) +
+   geom_hline(yintercept=180, size=1, color="darkred") +
+   ggtitle("Hourly ozone concentrations between 2013 -2018")
+theme_update(plot.title = element_text(hjust=0.5))
+
+# Keeping just the values over 180 u/m3
+pollutantO3$o3[pollutantO3$o3 < 180] <- NA
+pollutantO3 = na.omit(pollutantO3)
+
+#number of values above 180 u/m3
+nrow(pollutantO3)
+
+plot(pollutantO3$date,pollutantO3$o3, type = "p", xlab = "Year",
+     ylab = "Ozone concentration (ug/m3)", pch = 20,
+     main="Hourly concentrations above 180 u/m3 between 2013 -2018", 
+     col = "forestgreen")
+
+# Max level concentratons for O3 each 8 hours
+pollutants <- rollingMean(pollutants, pollutant = "o3", hours = 8, data.thresh = 75, na.rm=TRUE)
+pollutant8O3 = data.frame("date"=pollutants$date, "x8h"=pollutants$rolling8o3)
+pollutant8O3 = na.omit(pollutant8O3)
+
+hist(pollutant8O3$x8h, main = "Histogram for ozone (8 hours)",
+     xlab = "Ozone (ugm-3)", col="darkgreen", freq=FALSE)
+
+ggplot(pollutant8O3, aes(date, x8h))+
+   geom_point(color="darkolivegreen3")+
+   labs(x="Year", y="Ozone concentrations (u/m3)")+
+   scale_y_continuous(breaks = c(0,50,100,120,150,200)) +
+   geom_hline(yintercept=120, size=1, color="darkred") +
+   ggtitle("8 hours concentrations (u/m3) between 2013 -2018")
+theme_update(plot.title = element_text(hjust=0.5))
+   
+pollutant8O3$x8h[pollutant8O3$x8h < 120] <- NA
+pollutant8O3 = na.omit(pollutant8O3)
+# Number of concentrations over 120 u/m3
+nrow(pollutant8O3)
+
+# Plotting the O3 by 8 hours measures between 2013 - 2018 
+plot(pollutant8O3$date,pollutant8O3$x8h, type = "p", xlab = "Year",
+     ylab = "Ozone concentration (ug/m3)", pch = 15,
+     main="8 hours concentrations above 120 u/m3 between 2013 -2018", 
+     col = "darkolivegreen3")
+
+# o3 over limit per year between 2013-2018
+o3OverDay = pollutant8O3
+o3OverDay = distinct(o3OverDay, date, .keep_all= TRUE)
+o3OverDay = aggregate(o3OverDay$x8h, format(o3OverDay["date"],"%Y"), FUN = length)
+names(o3OverDay)[names(o3OverDay) == "x"] <- "o3"
+plot(o3OverDay$date,o3OverDay$o3, type = "b", xlab = "Year",
+     ylab = "Number of days", pch = 15,
+     main="Number of days above Ozone limits per year between 2013 -2018", 
+     col = "darkolivegreen3")
+
+
+
+d = data.frame("date" = as.POSIXct(o3OverDay$date), "o3"= o3OverDay$o3) 
+
+ 
+
+o3Over = aggregate(d$o3,format(d["date"],"%Y"), FUN = length)
+names(o3Over)[names(o3Over) == "x"] <- "O3 over limit"
+View(o3Over)
+
+plot(pollutant8O3$date,pollutant8O3$x8h, type = "p", xlab = "Year",
+     ylab = "Number of days", pch = 15,
+     main="Ozone 8 hours concentrations above limit 2013-2018", 
+     col = "darkolivegreen3")
+
+o3.breaks <-c(0, 66, 120, 160, 214, 500)
+labels <- c("Low", "Moderate", "High", " Very High", "Harmful")
+
+# second highest
+calendarPlot(pollutant8O3, year = 2013, pollutant = "x8h", labels = labels,
+             breaks = o3.breaks, statistic = "max", cols = c("lightblue","blue","orange","red","brown"), lim = 120,
+             annotate = "value")
+# Lowest
+calendarPlot(pollutant8O3, year = 2014, pollutant = "x8h", labels = labels,
+             breaks = o3.breaks, statistic = "max", cols = c("lightblue","blue","orange","red","brown"), lim = 120,
+             annotate = "value")
+
+calendarPlot(pollutant8O3, year = 2015, pollutant = "x8h", labels = labels,
+             breaks = o3.breaks, statistic = "max", cols = c("lightblue","blue","orange","red","brown"), lim = 120,
+             annotate = "value")
+
+calendarPlot(pollutant8O3, year = 2016, pollutant = "x8h", labels = labels,
+             breaks = o3.breaks, statistic = "max", cols = c("lightblue","blue","orange","red","brown"), lim = 120,
+             annotate = "value")
+
+calendarPlot(pollutant8O3, year = 2017, pollutant = "x8h", labels = labels,
+             breaks = o3.breaks, statistic = "max", cols = c("lightblue","blue","orange","red","brown"), lim = 120,
+             annotate = "value")
+# Highest
+calendarPlot(pollutant8O3, year = 2018, pollutant = "x8h", labels = labels,
+             breaks = o3.breaks, statistic = "max", cols = c("lightblue","blue","orange","red","brown"), lim = 120,
+             annotate = "value")
+
 # Variables relation
 corPlot(pollutants, dendrogram = TRUE)
 
@@ -70,7 +226,8 @@ corPlot(pollutants, dendrogram = TRUE)
 smoothTrend(pollutants, pollutant = "no2", simulate = TRUE, ylab = "concentration (ppb)",
             main = "Monthly trend of NO2 by percentiles (5, 50, 95)", statistic = "percentile",
             percentile = c(5, 50, 95))
-smoothTrend(pollutants, pollutant = "o3", simulate = TRUE, ylab = "concentration (ppb)",
+
+smoothTrend(pollutants, pollutant = "rolling8o3", simulate = TRUE, ylab = "concentration (ppb)",
             main = "Monthly trend of O3 by percentiles (5, 50, 95)", statistic = "percentile",
             deseason = TRUE, percentile = c(5, 50, 95))
 
@@ -82,91 +239,43 @@ smoothTrend(pollutants, pollutant = "wd",
 smoothTrend(pollutants, pollutant = c("no2", "ws", "temp"),
             deseason = TRUE, simulate =TRUE, ylab = "concentration (ppb)",
             main = "Monthly mean non-deseasonalised trend")
-#--------------------------------------------
-# Data exploration for Nitrogen Oxid (no)
-#--------------------------------------------
-pollutant = pollutants[1:4]
-# Data overview
-summary(pollutants)
-
-# Plotting the no yearly measures between 2013 - 2018 
-plot(pollutants$date, pollutants$no, type = "l", xlab = "Year",
-     ylab = "Nitrogen oxides (ppb)")
-
-# Wide view of NO pollutant by station 
-summaryPlot(pollutant)
-
-# Yearly mean for NO between 2013-2018
-means = aggregate(pollutant$no, format(pollutant["date"],"%Y"), mean, 
-                  na.rm = TRUE)
-
-# Plotting the NO yearly mean measures between 2013-2018
-plot(means$date, means$x, type = "l", ylab = "Concentration level (u/m3)", lwd = 2,
-     xlab = "Year", main = "Yearly mean no (bootstrap uncertainties)", col = "cadetblue")
-
-# Maxims
-maxs = aggregate(pollutant$no, format(pollutant["date"],"%Y"), max, 
-                  na.rm = TRUE)
-# Plotting the NO yearly mean measures between 2013-2018
-plot(maxs$date, maxs$x, type = "l", ylab = "Concentration level (u/m3)", lwd = 2,
-     xlab = "Year", main = "Yearly maxims for NO (bootstrap uncertainties)", 
-     col = "cadetblue")
-
-# Monthly mean for NO between 2013-2018
-means = aggregate(pollutant$no, format(pollutant["date"],"%m"), mean, 
-                  na.rm = TRUE)
-
-# Plotting the NO yearly mean measures between 2013-2018
-plot(means$x, type="l", xaxt = "n",  col = "cadetblue",  xlab = "Month",
-     ylab = "Concentration level (ppb)", lwd = 2,
-     main = "NO Monthly mean (bootstrap uncertainties) 2013-2018")
-
-# Adding tick marks at each month interval
-months = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-axis(1, at=1:12, labels=months)
-abline(v = 1:12, col = "grey80")
-
-# Day of the week
-pollutant = pollutants[1:4]
-means = aggregate(pollutant$no, format(pollutant["date"],"%w-%H"), mean, na.rm=TRUE)
-head(means)
-
-plot(seq(1, nrow(means), 1), means$x, type="l", xaxt = "n", col = "cadetblue", lwd = 2,
-     xlab = "day of week", ylab = "nitrogen oxid (ppb)",
-     main = "Nitrogen oxid mean at London by day of the week between 2013-2018")
-
-# add some tick marks at 24 hr intervals
-axis(1, at = seq(1, nrow(means), 24), labels = FALSE)
-
-# add some labels to x-axis
-days = c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-loc.days = seq(13, 157, 24) # location of labels on x-axis
-
-# write text in margin
-mtext(days, side = 1, line = 1, at = loc.days)
-
-# adding grid lines
-abline(v = seq(1, 169, 24), col = "grey85")
-
-# Daily mean  of no in 2013
-calendarPlot(pollutant, pollutant="no", year = 2013, annotate = "value", 
-             lim =50, col.lim = c("black", "red"), layout = c(4, 3), 
-             breaks = c(0, 50, 100, 150, 1000), cols = "increment", 
-             labels = c("Very low", "Low", "High", "Very High"),
-             statistic = "max")
 
 #--------------------------------------------
 # Data exploration for Nitrogen Dioxide (no2)
 #--------------------------------------------
 head(pollutants)
-pollutant = pollutants[,c(1,2,3,5,11,12,13)]
+pollutant = pollutants[,c(1,2,3,5,12,13,14)]
 # Data overview
 summary(pollutant)
 
 # Plotting the no2 yearly measures between 2013 - 2018 
+png("images/no2Concentrations.png", width = 6 * 600, height = 5 * 600, res = 600)
 plot(pollutants$date, pollutants$no2, type = "l", xlab = "Year",
-     ylab = "Nitrogen dioxide (ug/m3)", col = "blue",
-     main = "Nitrogen dioxide measures between 2013 - 2018")
+     ylab = "Nitrogen dioxide (ug/m3)", col = "slateblue",
+     main = "Nitrogen dioxide concentrations between 2013 - 2018")
+dev.off()
+
+pollutantNo2 = data.frame("date"=pollutants$date, "no2"=pollutants$no2)
+png("images/no2HourlyConcentration.png", width = 6 * 600, height = 5 * 600, res = 600)
+ggplot(pollutantNo2, aes(date, no2))+
+   geom_point(color="slateblue1")+
+   labs(x="Year", y="NO2 concentration (u/m3)")+
+   scale_y_continuous(breaks = c(0, 75,150, 200, 400)) +
+   geom_hline(yintercept=200, size=1, color="darkred") +
+   ggtitle("Hourly nitrogen dioxide concentrations between 2013 -2018")
+theme_update(plot.title = element_text(hjust=0.5))
+dev.off()
+
+# Keeping just the values over 200 u/m3
+pollutantNo2$no2[pollutantNo2$no2 < 200] <- NA
+pollutantNo2 = na.omit(pollutantNo2)
+nrow(pollutantNo2)
+png("images/no2Above.png", width = 6 * 600, height = 5 * 600, res = 600)
+plot(pollutantNo2$date,pollutantNo2$no2, type = "p", xlab = "Year",
+     ylab = "Nitrogen dioxide concentration (ug/m3)", pch = 20,
+     main="Hourly concentrations above 200 u/m3 between 2013 -2018", 
+     col = "slateblue3")
+dev.off()
 
 # Wide view of NO pollutant by station 
 summaryPlot(pollutant)
@@ -174,9 +283,10 @@ summaryPlot(pollutant)
 hist(pollutants$no2, main = "Histogram for nitrogen dioxide - NO2",
      xlab = "Nitrogen dioxide NO2 (ugm-3)", col="deepskyblue4", freq=FALSE)
 
-# Yearly mean for NO2 between 2013-2018
-means = aggregate(pollutant$no2, format(pollutant["date"],"%Y"), mean, 
-                  na.rm = TRUE)
+# NO2 over limit per year between 2013-2018
+no2Over = aggregate(pollutantNo2$no2, format(pollutantNo2["date"],"%Y"), FUN = length)
+names(no2Over)[names(no2Over) == "x"] <- "no2 over limit"
+
 # Plotting the NO2 yearly mean measures between 2013-2018
 plot(means$date, means$x, type = "l", ylab = "Concentration level (ppb)", lwd = 2,
      xlab = "Year", main = "Yearly mean for nitrogen dioxide", col = "blue")
@@ -336,7 +446,9 @@ summary(pollutant)
 
 # Plotting the no yearly measures between 2013 - 2018 
 plot(pollutants$date, pollutants$pm10, type = "l", xlab = "Year",
-     ylab = "concentratons (ug/m3)", main=" between 2013 -2018", col = "orange")
+     ylab = "concentratons (ug/m3)", main=" PM10 concentrations between 2013-2018", col = "orange")
+
+
 
 # Wide view of PM10 pollutant by station 
 summaryPlot(pollutant)
@@ -417,10 +529,12 @@ plot(pollutants$date, pollutants$o3, type = "l", xlab = "Year",
      ylab = "concentratons (ug/m3)", main=" between 2013 -2018", col = "darkgreen")
 
 # Wide view of PM10 pollutant by station 
-summaryPlot(pollutant)
+summaryPlot(pollutants)
 
 hist(pollutants$no, main = "Histogram of O3",
      xlab = "Ozone ug/m3", col="darkgreen", freq=FALSE)
+
+
 
 pollutant <- rollingMean(pollutant, pollutant = "o3", hours = 8, data.thresh = 75, na.rm=TRUE)
 pollutant = na.omit(pollutant)
@@ -442,7 +556,78 @@ plot(pollutantLimit$date, pollutantLimit$rolling8o3, type = "p", xlab = "Year",
      ylab = "concentrations (ug/m3)", main=" Number of o3 warning alarms between 2013-2018", col = "darkgreen")
 dev.off()
 
+#--------------------------------------------
+# Data exploration for Nitrogen Oxid (no)
+#--------------------------------------------
+pollutant = pollutants[1:4]
+# Data overview
+summary(pollutant)
 
+# Plotting the no yearly measures between 2013 - 2018 
+plot(pollutants$date, pollutants$no, type = "l", xlab = "Year",
+     ylab = "Nitrogen oxides (ppb)")
+
+# Wide view of NO pollutant by station 
+summaryPlot(pollutant)
+
+# Yearly mean for NO between 2013-2018
+means = aggregate(pollutant$no, format(pollutant["date"],"%Y"), mean, 
+                  na.rm = TRUE)
+
+# Plotting the NO yearly mean measures between 2013-2018
+plot(means$date, means$x, type = "l", ylab = "Concentration level (u/m3)", lwd = 2,
+     xlab = "Year", main = "Yearly mean no (bootstrap uncertainties)", col = "cadetblue")
+
+# Maxims
+maxs = aggregate(pollutant$no, format(pollutant["date"],"%Y"), max, 
+                 na.rm = TRUE)
+# Plotting the NO yearly mean measures between 2013-2018
+plot(maxs$date, maxs$x, type = "l", ylab = "Concentration level (u/m3)", lwd = 2,
+     xlab = "Year", main = "Yearly maxims for NO (bootstrap uncertainties)", 
+     col = "cadetblue")
+
+# Monthly mean for NO between 2013-2018
+means = aggregate(pollutant$no, format(pollutant["date"],"%m"), mean, 
+                  na.rm = TRUE)
+
+# Plotting the NO yearly mean measures between 2013-2018
+plot(means$x, type="l", xaxt = "n",  col = "cadetblue",  xlab = "Month",
+     ylab = "Concentration level (ppb)", lwd = 2,
+     main = "NO Monthly mean (bootstrap uncertainties) 2013-2018")
+
+# Adding tick marks at each month interval
+months = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+axis(1, at=1:12, labels=months)
+abline(v = 1:12, col = "grey80")
+
+# Day of the week
+pollutant = pollutants[1:4]
+means = aggregate(pollutant$no, format(pollutant["date"],"%w-%H"), mean, na.rm=TRUE)
+head(means)
+
+plot(seq(1, nrow(means), 1), means$x, type="l", xaxt = "n", col = "cadetblue", lwd = 2,
+     xlab = "day of week", ylab = "nitrogen oxid (ppb)",
+     main = "Nitrogen oxid mean at London by day of the week between 2013-2018")
+
+# add some tick marks at 24 hr intervals
+axis(1, at = seq(1, nrow(means), 24), labels = FALSE)
+
+# add some labels to x-axis
+days = c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+loc.days = seq(13, 157, 24) # location of labels on x-axis
+
+# write text in margin
+mtext(days, side = 1, line = 1, at = loc.days)
+
+# adding grid lines
+abline(v = seq(1, 169, 24), col = "grey85")
+
+# Daily mean  of no in 2013
+calendarPlot(pollutant, pollutant="no", year = 2013, annotate = "value", 
+             lim =50, col.lim = c("black", "red"), layout = c(4, 3), 
+             breaks = c(0, 50, 100, 150, 1000), cols = "increment", 
+             labels = c("Very low", "Low", "High", "Very High"),
+             statistic = "max")
 
 
 
