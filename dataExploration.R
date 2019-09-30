@@ -32,8 +32,6 @@ sql = "select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp
       union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp   
       from ST_AURN_MEASURES_2018"
 
-sql = "select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp   
-      from ST_AURN_MEASURES_2019"
 pollutants = sqlQuery(ODBCconn, sql)
 
 head(pollutants)
@@ -276,12 +274,12 @@ pollutant$no2[is.na(pollutant$no2)] = no2median
 
 no2HourlyMean = aggregate(pollutant[-1], format(pollutant["date"],"%Y-%m-%d-%H"), mean,
                           na.rm = TRUE)
-write.csv(no2HourlyMean,"/home/gloria/PycharmProjects/pollution/data/no2Hourly.csv")
+write.csv(no2HourlyMean,"data/no2Hourly.csv")
 
 no2DaylyMean = aggregate(pollutant[-1], format(pollutant["date"],"%Y-%m-%d"), mean,
                           na.rm = TRUE)
 head(no2DaylyMean)
-write.csv(no2DaylyMean,"/home/gloria/PycharmProjects/pollution/data/no2Dayly-Dataset.csv")
+write.csv(no2DaylyMean,"data/no2Dayly-Dataset.csv")
 
 # Plotting the no2 yearly measures between 2013 - 2018 
 png("images/no2Concentrations.png", width = 6 * 600, height = 5 * 600, res = 600)
