@@ -54,13 +54,6 @@ head(pollutants)
 # Data overview
 summary(pollutants)
 
-# Dataset normalization
-#norm_pollutants = normalize(pollutants[4:13], method="Z-score")
-
-# Dataset normalization
-#pollutants[4:13] = scale(pollutants[4:13])
-
-
 # General view of the measures(mean)
 png("images/No2General.png", width = 12 * 600, height = 5 * 600, res = 600)
 timePlot(pollutants, pollutant = "no2",
