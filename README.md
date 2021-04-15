@@ -27,33 +27,35 @@ The pollutnats concentrations are measured per hour and stored in the station. A
   <img src="plots/stationsDataset.png" />
 </p>
 
-## Pollutant selection criteria
-The European Union (EU) through the European Environment Agency has developed an extensive legislation which establishes standards and objectives for a number of pollutants in air. The selection criteria for the pollutant to analyze will be that one that has exceeded this quality index limit more frequently. 
-
 ## How to run
 1. In Rstudio, open the file `LdnAirAnalysis.Rproj`
 2. Install dependencies: openair and dplyr
+3. Create folders **data** and **images** in the projet root
 3. Run the `extraction.R`. It will generate a  `.csv` file in the folder `data/`
 5. Execute `dataExploration.R`
 
+## Pollutant selection criteria
+The European Union (EU) through the European Environment Agency has developed an extensive legislation which establishes standards and objectives for a number of pollutants in air. The selection criteria for the pollutant to analyze will be that one that has exceeded this quality index limit more frequently. 
+
+<p align="center">
+  <img src="plots/AQI.JPG" />
+</p>
+
+
 ## Output
-A `.csv` file that contains the average measures of the most significant pollutant in London.
+A couple of `.csv` file that contains the average measures of the most significant pollutant in London per hour and per day.
 
 ## Some Plots
-
-<p align="center">
-  <img src="plots/o3summary.png" />
+Correlation matrix between pollutants and variables monitored by the sensors in the stations.
+<p align="center">  
+ <img src="plots/correation.png" width="50%" height="50%"/>
 </p>
-
-<p align="center">
-  <img src="plots/correlation.png" />
-</p>
-
-<p align="center">
-  <img src="plots/nonDeseasonalisedTrend.png" />
-</p>
-
-<p align="center">
-  <img src="plots/deseasonalisedTrend.png" />
-</p>
+Summary for O3
+<p align="center"><img src="plots/o3summary.png" width="50%" height="50%"/></p>
+Summary for No2
+<p align="center"> <img src="plots/no2summary.png" width="50%" height="50%"/></p>
+Data trend non deseasonalized
+<p align="center"><img src="plots/nonDeseasonalisedTrend.png" width="50%" height="50%"/></p>
+Data trend deseasonalized
+<p align="center"><img src="plots/deseasonalisedTrend.png" width="50%" height="50%"/></p>
 
