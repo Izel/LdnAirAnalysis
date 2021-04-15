@@ -3,42 +3,18 @@
 ######################################
 library(openair)
 library(ggplot2)
-library(RODBC)
 library(dplyr)
 library(zoo)
 
-# Preparing connection and driver for mysql queries
-driver = "MySQL ODBC 8.0 Unicode Driver" 
-db = "YOUR DB"
-host = "127.0.0.1"
-port = "3306"
-user = "YOUR_USER"
-pwd = "YOUR_PASSWORD"
-
-conn = paste("DRIVER=",driver, ";Database=",db,";Server=",host, ";Port=",port,
-             ";PROTOCOL=TCPIP",";UID=", user,";PWD=",pwd, sep="")
-ODBCconn = odbcDriverConnect(conn)
-
-sql = "select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp  
-      from ST_AURN_MEASURES_2013 
-      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp 
-      from ST_AURN_MEASURES_2014 
-      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp   
-      from ST_AURN_MEASURES_2015 
-      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp     
-      from ST_AURN_MEASURES_2016
-      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp  
-      from ST_AURN_MEASURES_2017
-      union select measure_date, code, site, no2, pm25, pm10, o3, ws, wd, temp   
-      from ST_AURN_MEASURES_2018"
-
 pollutants = sqlQuery(ODBCconn, sql)
 
+pollutants = read.csv("data/2013-2019-LdnAir.csv")
 head(pollutants)
 
 # Renaming the measure_date column to date. It facilitates the use of openair 
 # functions for AURN networks data.
 names(pollutants)[names(pollutants) == "measure_date"] <- "date"
+names(pollutants)[names(pollutants) == "pm2.5"] <- "pm25"
 
 # Transforming the date values
 pollutants$date = as.POSIXct(pollutants$date)
@@ -48,8 +24,6 @@ pollutants$no2[pollutants$no2 < 0] <- 0
 pollutants$pm25[pollutants$pm25 < 0] <- 0
 pollutants$pm10[pollutants$pm10 < 0] <- 0
 pollutants$o3[pollutants$o3 < 0] <- 0
-
-head(pollutants)
 
 # Data overview
 summary(pollutants)
@@ -173,7 +147,6 @@ o3OverDay = pollutant8O3
 o3OverDay = aggregate(o3OverDay$x8h, format(o3OverDay["date"],"%Y"), FUN = length)
 names(o3OverDay)[names(o3OverDay) == "x"] <- "o3"
 head(pollutant8O3)
-
 
 plot(o3OverDay$date,o3OverDay$o3, type = "b", xlab = "Year",
      ylab = "Number of days", pch = 15,
